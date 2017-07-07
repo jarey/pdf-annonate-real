@@ -3,7 +3,7 @@ import PDFJSAnnotate from '../';
 import initColorPicker from './shared/initColorPicker';
 
 const { UI } = PDFJSAnnotate;
-const documentId = 'example.pdf';
+const documentId = 'shared/example.pdf';
 let PAGE_HEIGHT;
 let RENDER_OPTIONS = {
   documentId,
@@ -11,7 +11,9 @@ let RENDER_OPTIONS = {
   scale: parseFloat(localStorage.getItem(`${documentId}/scale`), 10) || 1.33,
   rotate: parseInt(localStorage.getItem(`${documentId}/rotate`), 10) || 0
 };
+ 
 
+ 
 PDFJSAnnotate.setStoreAdapter(new PDFJSAnnotate.LocalStoreAdapter());
 PDFJS.workerSrc = './shared/pdf.worker.js';
 
@@ -38,9 +40,12 @@ document.getElementById('content-wrapper').addEventListener('scroll', function (
 });
 
 function render() {
-  PDFJS.getDocument(RENDER_OPTIONS.documentId).then((pdf) => {
-    RENDER_OPTIONS.pdfDocument = pdf;
+  
+  //localStorage.removeItem(`${RENDER_OPTIONS.documentId}/annotations`);
 
+  
+  PDFJS.getDocument(RENDER_OPTIONS.documentId).then((pdf) => {    
+    RENDER_OPTIONS.pdfDocument = pdf;    
     let viewer = document.getElementById('viewer');
     viewer.innerHTML = '';
     NUM_PAGES = pdf.pdfInfo.numPages;
@@ -48,7 +53,6 @@ function render() {
       let page = UI.createPage(i+1);
       viewer.appendChild(page);
     }
-
     UI.renderPage(1, RENDER_OPTIONS).then(([pdfPage, annotations]) => {
       let viewport = pdfPage.getViewport(RENDER_OPTIONS.scale, RENDER_OPTIONS.rotate);
       PAGE_HEIGHT = viewport.height;
@@ -57,12 +61,127 @@ function render() {
 }
 render();
 
+// Socket Code Start
+var socket = io("http://localhost:8484/");
+
+(function(){        
+    
+  socket.on('load old annonation', function(targetObj){                        
+
+    // localStorage.setItem(`${RENDER_OPTIONS.documentId}/annotations`, JSON.stringify(targetObj.annonation));        
+    // render();
+    
+  });
+
+
+  //Clear Annonation Socket Code Start
+  socket.on("clear annotations",function(targetObj){        
+    localStorage.removeItem(`${RENDER_OPTIONS.documentId}/annotations`);
+    render();
+  });
+  
+  //Add Annonation Socket Code Start
+  socket.on("add annotations",function(targetObj){                                  
+        PDFJSAnnotate.getStoreAdapter().addAnnotation(
+          'shared/example.pdf',
+          1,            
+          targetObj
+
+        ).then((annotation) => {                        
+          render();                                          
+        }, (error) => {
+          console.log(error.message);
+        });      
+  });
+
+  //Delete Annonation Socket Code Start
+  socket.on("delete annotations",function(targetObj){            
+      PDFJSAnnotate.getStoreAdapter().getAnnotations('shared/example.pdf', 1)
+      .then((data) => {                    
+        var allAnnonate=data.annotations;                                                                                          
+        var filtered = allAnnonate.filter((data)=>{                                     
+                return data.i_by == targetObj.uuid;
+        });                      
+        if(filtered.length == 0) {
+            return;
+        }                           
+        PDFJSAnnotate.getStoreAdapter().deleteAnnotation(
+            'shared/example.pdf',
+            filtered[0].uuid
+        ).then(() => {            
+          render();
+        }, (error) => {
+          console.log(error.message);
+        });        
+      }, (error) => {
+        console.log(error.message);
+      });            
+  });
+
+  //Edit Annonation Socket Code Start
+  socket.on("edit annotations",function(targetObj){                                  
+      
+        if(targetObj.inNotParent){                      
+                    
+          PDFJSAnnotate.getStoreAdapter().getAnnotations('shared/example.pdf', 1)
+          .then((data) => {                    
+            var allAnnonate=data.annotations;                                                                                    
+            var filtered = allAnnonate.filter((data)=>{                                     
+                return data.uuid == targetObj.i_by;
+            });              
+            if(filtered.length == 0) {
+                return;
+            }                                      
+            
+            // targetObj.i_by=filtered[0]['i_by'];            
+            // targetObj.inNotParent=true;
+            // PDFJSAnnotate.getStoreAdapter().editAnnotation('shared/example.pdf',filtered[0]['uuid'], targetObj).then((rannotation) => {                                                                
+            // }, (error) => {
+            //   console.log(error.message);
+            // });            
+
+            // render();
+
+          }, (error) => {
+            console.log(error.message);
+          }); 
+
+
+        }else{  
+
+        PDFJSAnnotate.getStoreAdapter().getAnnotations('shared/example.pdf', 1)
+          .then((data) => {                    
+            var allAnnonate=data.annotations;                                                                                    
+            var filtered = allAnnonate.filter((data)=>{                                     
+                return data.i_by == targetObj.uuid;
+            });              
+            if(filtered.length == 0) {
+                return;
+            }                                        
+            targetObj.i_by=filtered[0]['i_by'];
+            targetObj.inNotParent=true;
+
+            PDFJSAnnotate.getStoreAdapter().editAnnotation('shared/example.pdf',filtered[0]['uuid'], targetObj).then((rannotation) => {                                                                
+            }, (error) => {
+              console.log(error.message);
+            });            
+
+            render();
+          }, (error) => {
+            console.log(error.message);
+          }); 
+        }        
+  });
+})();
+
+
 // Hotspot color stuff
 (function () {
   let hotspotColor = localStorage.getItem(`${RENDER_OPTIONS.documentId}/hotspot/color`) || 'darkgoldenrod';
   let currentTarget = undefined;
   
   function handleAnnotationClick(target) {
+  
     let type = target.getAttribute('data-pdf-annotate-type');
     if (['fillcircle', 'arrow'].indexOf(type) === -1) {
       return; // nothing to do
@@ -80,7 +199,7 @@ render();
     }
   }
 
-  function handleAnnotationBlur(target) {
+  function handleAnnotationBlur(target) {    
     if (currentTarget === target) {
       currentTarget = undefined;
     }
@@ -206,9 +325,9 @@ render();
     });
   }
 
-  function setPen(size, color) {
-    let modified = false;
+  function setPen(size, color) {    
 
+    let modified = false;
     if (penSize !== size) {
       modified = true;
       penSize = size;
@@ -259,7 +378,7 @@ render();
     let active = document.querySelector('.toolbar button.active');
     if (active) {
       active.classList.remove('active');
-
+        
       switch (tooltype) {
         case 'cursor':
           UI.disableEdit();
@@ -326,7 +445,7 @@ render();
     }
   }
 
-  function handleToolbarClick(e) {
+  function handleToolbarClick(e) {    
     if (e.target.nodeName === 'BUTTON') {
       setActiveToolbarItem(e.target.getAttribute('data-tooltype'), e.target);
     }
@@ -338,6 +457,7 @@ render();
 // Scale/rotate
 (function () {
   function setScaleRotate(scale, rotate) {
+    
     scale = parseFloat(scale, 10);
     rotate = parseInt(rotate, 10);
 
@@ -352,18 +472,17 @@ render();
     }
   }
 
-  function handleScaleChange(e) {
+  function handleScaleChange(e) {    
     setScaleRotate(e.target.value, RENDER_OPTIONS.rotate);
   }
 
-  function handleRotateCWClick() {
+  function handleRotateCWClick() {    
     setScaleRotate(RENDER_OPTIONS.scale, RENDER_OPTIONS.rotate + 90);
   }
 
-  function handleRotateCCWClick() {
+  function handleRotateCCWClick() {        
     setScaleRotate(RENDER_OPTIONS.scale, RENDER_OPTIONS.rotate - 90);
   }
-
   document.querySelector('.toolbar select.scale').value = RENDER_OPTIONS.scale;
   document.querySelector('.toolbar select.scale').addEventListener('change', handleScaleChange);
   document.querySelector('.toolbar .rotate-ccw').addEventListener('click', handleRotateCCWClick);
@@ -372,12 +491,12 @@ render();
 
 // Clear toolbar button
 (function () {
-  function handleClearClick(e) {
-    if (confirm('Are you sure you want to clear annotations?')) {
+  function handleClearClick(e) {        
+    if (confirm('Are you sure you want to clear annotations?')) {      
       for (let i=0; i<NUM_PAGES; i++) {
         document.querySelector(`div#pageContainer${i+1} svg.annotationLayer`).innerHTML = '';
       }
-
+      socket.emit('clear annotations', "clear");
       localStorage.removeItem(`${RENDER_OPTIONS.documentId}/annotations`);
     }
   }
@@ -391,11 +510,13 @@ render();
   let commentText = commentForm.querySelector('input[type="text"]');
 
   function supportsComments(target) {
+    
     let type = target.getAttribute('data-pdf-annotate-type');
     return ['point', 'highlight', 'area'].indexOf(type) > -1;
   }
 
   function insertComment(comment) {
+    
     let child = document.createElement('div');
     child.className = 'comment-list-item';
     child.innerHTML = twitter.autoLink(twitter.htmlEscape(comment.content));
@@ -403,16 +524,14 @@ render();
     commentList.appendChild(child);
   }
 
-  function handleAnnotationClick(target) {
-    if (supportsComments(target)) {
+  function handleAnnotationClick(target) {            
+    if (supportsComments(target)) {                
       let documentId = target.parentNode.getAttribute('data-pdf-annotate-document');
       let annotationId = target.getAttribute('data-pdf-annotate-id');
-
       PDFJSAnnotate.getStoreAdapter().getComments(documentId, annotationId).then((comments) => {
         commentList.innerHTML = '';
         commentForm.style.display = '';
         commentText.focus();
-
         commentForm.onsubmit = function () {
           PDFJSAnnotate.getStoreAdapter().addComment(documentId, annotationId, commentText.value.trim())
             .then(insertComment)
@@ -420,29 +539,50 @@ render();
               commentText.value = '';
               commentText.focus();
             });
-
           return false;
         };
-
         comments.forEach(insertComment);
       });
     }
   }
 
-  function handleAnnotationBlur(target) {
+  function handleAnnotationBlur(target) {        
     if (supportsComments(target)) {
       commentList.innerHTML = '';
       commentForm.style.display = 'none';
-      commentForm.onsubmit = null;
-      
+      commentForm.onsubmit = null;      
       insertComment({content: 'No comments'});
     }
   }
 
   UI.addEventListener('annotation:click', handleAnnotationClick);
-  UI.addEventListener('annotation:blur', handleAnnotationBlur);
+  UI.addEventListener('annotation:blur', handleAnnotationBlur);  
+  UI.addEventListener('annotation:add', (documentId, pageNumber, annotation) => {                
+    if(annotation.inNotParent){      
+      annotation.inNotParent=false;      
+      return;
+    }
+    socket.emit('add annotations', annotation);    
+  });
 
+  UI.addEventListener('annotation:edit', (documentId, annotationId, annotation) => {    
+    if(annotation.isOnlyOneWay){                
+      annotation.isOnlyOneWay=false;
+      return
+    }            
+    socket.emit('edit annotations', annotation);
+  }); 
+
+  UI.addEventListener('annotation:delete', (documentId, annotationId)=>{
+    var obj={
+      'uuid':annotationId,
+      'documentId':documentId,
+      'is_deleted':true,
+      "i_by":annotationId,
+    }
+    socket.emit('delete annotations', obj);
+  });
+  
   UI.setArrow(10, 'darkgoldenrod');
   UI.setCircle(10, 'darkgoldenrod')
-
 })(window, document);
