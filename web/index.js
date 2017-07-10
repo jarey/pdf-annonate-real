@@ -63,14 +63,13 @@ render();
 
 // Socket Code Start
 var socket = io("http://localhost:8484/");
+var emitingDromServer=false;
 
 (function(){        
     
-  socket.on('load old annonation', function(targetObj){                        
-
+  socket.on('load old annonation', function(targetObj){                            
     // localStorage.setItem(`${RENDER_OPTIONS.documentId}/annotations`, JSON.stringify(targetObj.annonation));        
-    // render();
-    
+    // render();    
   });
 
 
@@ -118,11 +117,24 @@ var socket = io("http://localhost:8484/");
       });            
   });
 
+  
   //Edit Annonation Socket Code Start
-  socket.on("edit annotations",function(targetObj){                                  
-      
-        if(targetObj.inNotParent){                      
-                    
+  socket.on("edit annotations",function(targetObj){    
+
+      emitingDromServer=true
+        
+        function updateCallback(update_uuid,dataObject){
+        PDFJSAnnotate.getStoreAdapter().editAnnotation('shared/example.pdf',update_uuid,dataObject).then((rannotation) => {  
+              setTimeout(function(){
+                emitingDromServer=false;
+              },1000);
+
+            }, (error) => {
+              console.log(error.message);
+            });            
+            render();
+        }
+        if(targetObj.inNotParent){                                                 
           PDFJSAnnotate.getStoreAdapter().getAnnotations('shared/example.pdf', 1)
           .then((data) => {                    
             var allAnnonate=data.annotations;                                                                                    
@@ -131,24 +143,14 @@ var socket = io("http://localhost:8484/");
             });              
             if(filtered.length == 0) {
                 return;
-            }                                      
+            }                         
             
-            // targetObj.i_by=filtered[0]['i_by'];            
-            // targetObj.inNotParent=true;
-            // PDFJSAnnotate.getStoreAdapter().editAnnotation('shared/example.pdf',filtered[0]['uuid'], targetObj).then((rannotation) => {                                                                
-            // }, (error) => {
-            //   console.log(error.message);
-            // });            
-
-            // render();
-
+            updateCallback(filtered[0]['uuid'], targetObj)
+            
           }, (error) => {
             console.log(error.message);
           }); 
-
-
-        }else{  
-
+        }else{                      
         PDFJSAnnotate.getStoreAdapter().getAnnotations('shared/example.pdf', 1)
           .then((data) => {                    
             var allAnnonate=data.annotations;                                                                                    
@@ -159,14 +161,11 @@ var socket = io("http://localhost:8484/");
                 return;
             }                                        
             targetObj.i_by=filtered[0]['i_by'];
-            targetObj.inNotParent=true;
+            targetObj.inNotParent=true;                        
+            
+            updateCallback(filtered[0]['uuid'], targetObj)
 
-            PDFJSAnnotate.getStoreAdapter().editAnnotation('shared/example.pdf',filtered[0]['uuid'], targetObj).then((rannotation) => {                                                                
-            }, (error) => {
-              console.log(error.message);
-            });            
 
-            render();
           }, (error) => {
             console.log(error.message);
           }); 
@@ -566,11 +565,10 @@ var socket = io("http://localhost:8484/");
   });
 
   UI.addEventListener('annotation:edit', (documentId, annotationId, annotation) => {    
-    if(annotation.isOnlyOneWay){                
-      annotation.isOnlyOneWay=false;
-      return
-    }            
-    socket.emit('edit annotations', annotation);
+    if(!emitingDromServer){
+      socket.emit('edit annotations', annotation);
+    }
+    
   }); 
 
   UI.addEventListener('annotation:delete', (documentId, annotationId)=>{
