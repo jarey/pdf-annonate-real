@@ -4,6 +4,7 @@ import initColorPicker from './shared/initColorPicker';
 
 const { UI } = PDFJSAnnotate;
 const documentId = 'shared/example.pdf';
+
 let PAGE_HEIGHT;
 let RENDER_OPTIONS = {
   documentId,
@@ -12,7 +13,6 @@ let RENDER_OPTIONS = {
   rotate: parseInt(localStorage.getItem(`${documentId}/rotate`), 10) || 0
 };
  
-
  
 PDFJSAnnotate.setStoreAdapter(new PDFJSAnnotate.LocalStoreAdapter());
 PDFJS.workerSrc = './shared/pdf.worker.js';
@@ -22,38 +22,48 @@ let NUM_PAGES = 0;
 let renderedPages = [];
 let okToRender = false;
 document.getElementById('content-wrapper').addEventListener('scroll', function (e) {
+  
   let visiblePageNum = Math.round(e.target.scrollTop / PAGE_HEIGHT) + 1;
   let visiblePage = document.querySelector(`.page[data-page-number="${visiblePageNum}"][data-loaded="false"]`);
 
-  if (renderedPages.indexOf(visiblePageNum) == -1){
+  if (renderedPages.indexOf(visiblePageNum) == -1){    
     okToRender = true;
     renderedPages.push(visiblePageNum);
   } else {
     okToRender = false;
   }
-
+  
+  
   if (visiblePage && okToRender) {
     setTimeout(function () {
       UI.renderPage(visiblePageNum, RENDER_OPTIONS);
     });
   }
+  
 });
 
 function render() {
-
+  
+  
   PDFJS.getDocument(RENDER_OPTIONS.documentId).then((pdf) => {    
     RENDER_OPTIONS.pdfDocument = pdf;    
+    
     let viewer = document.getElementById('viewer');
+    
     viewer.innerHTML = '';
     NUM_PAGES = pdf.pdfInfo.numPages;
+    
     for (let i=0; i<NUM_PAGES; i++) {
       let page = UI.createPage(i+1);
       viewer.appendChild(page);
     }
-    UI.renderPage(1, RENDER_OPTIONS).then(([pdfPage, annotations]) => {
+    
+
+    UI.renderPage(1, RENDER_OPTIONS).then(([pdfPage, annotations]) => {         
       let viewport = pdfPage.getViewport(RENDER_OPTIONS.scale, RENDER_OPTIONS.rotate);
-      PAGE_HEIGHT = viewport.height;
+      PAGE_HEIGHT = viewport.height;    
     });
+
   });
 }
 render();
@@ -77,12 +87,19 @@ var emitingDromServer=false;
   
   //Add Annonation Socket Code Start
   socket.on("add annotations",function(targetObj){                                          
+
         PDFJSAnnotate.getStoreAdapter().addAnnotation(
           'shared/example.pdf',
-          1,            
+          targetObj.page,            
           targetObj
         ).then((annotation) => {                        
-          render();                                          
+          
+          UI.renderPage(annotation.page, RENDER_OPTIONS).then(([pdfPage, annotations]) => {         
+            let viewport = pdfPage.getViewport(RENDER_OPTIONS.scale, RENDER_OPTIONS.rotate);
+            PAGE_HEIGHT = viewport.height;    
+          });
+
+
         }, (error) => {
           console.log(error.message);
         });      
@@ -90,30 +107,46 @@ var emitingDromServer=false;
 
   //Delete Annonation Socket Code Start
   socket.on("delete annotations",function(targetObj){            
-      
-      
-      PDFJSAnnotate.getStoreAdapter().getAnnotations('shared/example.pdf', 1)
+
+      PDFJSAnnotate.getStoreAdapter().getAnnotations('shared/example.pdf', targetObj.page)
       .then((data) => {                    
-        var allAnnonate=data.annotations;    
-                
+        var allAnnonate=data.annotations;                    
         var filtered = allAnnonate.filter((data)=>{                                     
                 return data.i_by == targetObj.uuid;
         });    
-
         if(filtered.length == 0) { 
             filtered = allAnnonate.filter((data)=>{                                     
                 return data.uuid == targetObj.uuid;
             });                    
-        }
-                
+        }          
+
+        
         if(filtered.length == 0) {  
             return;
-        }                           
+        }         
+
         PDFJSAnnotate.getStoreAdapter().deleteAnnotation(
             'shared/example.pdf',
             filtered[0].uuid
         ).then(() => {            
-          render();
+          
+            PDFJS.getDocument(RENDER_OPTIONS.documentId).then((pdf) => {    
+                RENDER_OPTIONS.pdfDocument = pdf;                    
+                let viewer = document.getElementById('viewer');                
+                viewer.innerHTML = '';
+                NUM_PAGES = pdf.pdfInfo.numPages;                                              
+                for (let i=0; i<NUM_PAGES; i++) {
+                  let page = UI.createPage(i+1);
+                  viewer.appendChild(page);
+                  UI.renderPage(i+1, RENDER_OPTIONS).then(([pdfPage, annotations]) => {         
+                    let viewport = pdfPage.getViewport(RENDER_OPTIONS.scale, RENDER_OPTIONS.rotate);
+                    PAGE_HEIGHT = viewport.height;    
+                  });
+                }
+              });
+          
+          
+
         }, (error) => {
           console.log(error.message);
         });        
@@ -129,18 +162,40 @@ var emitingDromServer=false;
       emitingDromServer=true
         
         function updateCallback(update_uuid,dataObject){
-        PDFJSAnnotate.getStoreAdapter().editAnnotation('shared/example.pdf',update_uuid,dataObject).then((rannotation) => {  
+          
+            PDFJSAnnotate.getStoreAdapter().editAnnotation('shared/example.pdf',update_uuid,dataObject).then((rannotation) => {  
+              
               setTimeout(function(){
                 emitingDromServer=false;
+              
               },1000);
-
+            
             }, (error) => {
               console.log(error.message);
             });            
-            render();
+            
+            
+            PDFJS.getDocument(RENDER_OPTIONS.documentId).then((pdf) => {    
+                RENDER_OPTIONS.pdfDocument = pdf;                    
+                let viewer = document.getElementById('viewer');                
+                viewer.innerHTML = '';
+                NUM_PAGES = pdf.pdfInfo.numPages;                                              
+                for (let i=0; i<NUM_PAGES; i++) {
+                  let page = UI.createPage(i+1);
+                  viewer.appendChild(page);
+                  UI.renderPage(i+1, RENDER_OPTIONS).then(([pdfPage, annotations]) => {         
+                    let viewport = pdfPage.getViewport(RENDER_OPTIONS.scale, RENDER_OPTIONS.rotate);
+                    PAGE_HEIGHT = viewport.height;    
+                  });
+                }
+              });
+              
+          // render();            
+            
         }
+
         if(targetObj.inNotParent){                                                 
-          PDFJSAnnotate.getStoreAdapter().getAnnotations('shared/example.pdf', 1)
+          PDFJSAnnotate.getStoreAdapter().getAnnotations('shared/example.pdf', targetObj.page)
           .then((data) => {                    
             var allAnnonate=data.annotations;                                                                                    
             var filtered = allAnnonate.filter((data)=>{                                     
@@ -152,11 +207,15 @@ var emitingDromServer=false;
             
             updateCallback(filtered[0]['uuid'], targetObj)
             
+
           }, (error) => {
             console.log(error.message);
           }); 
-        }else{                      
-        PDFJSAnnotate.getStoreAdapter().getAnnotations('shared/example.pdf', 1)
+        }else{        
+          
+          
+
+        PDFJSAnnotate.getStoreAdapter().getAnnotations('shared/example.pdf', targetObj.page)
           .then((data) => {                    
             var allAnnonate=data.annotations;                                                                                    
             var filtered = allAnnonate.filter((data)=>{                                     
@@ -167,7 +226,7 @@ var emitingDromServer=false;
             }                                        
             targetObj.i_by=filtered[0]['i_by'];
             targetObj.inNotParent=true;                        
-            
+                        
             updateCallback(filtered[0]['uuid'], targetObj)
 
 
@@ -493,6 +552,7 @@ var emitingDromServer=false;
   document.querySelector('.toolbar select.scale').addEventListener('change', handleScaleChange);
   document.querySelector('.toolbar .rotate-ccw').addEventListener('click', handleRotateCCWClick);
   document.querySelector('.toolbar .rotate-cw').addEventListener('click', handleRotateCWClick);
+
 })();
 
 // Clear toolbar button
@@ -505,6 +565,7 @@ var emitingDromServer=false;
       socket.emit('clear annotations', "clear");
       localStorage.removeItem(`${RENDER_OPTIONS.documentId}/annotations`);
       localStorage.removeItem(`${RENDER_OPTIONS.documentId}/annotations-back`);      
+      
     }
   }
   document.querySelector('a.clear').addEventListener('click', handleClearClick);
@@ -586,22 +647,32 @@ var emitingDromServer=false;
   }); 
 
   UI.addEventListener('annotation:delete', (documentId, annotationId)=>{    
+    
     var oldAnnotations = JSON.parse(localStorage.getItem(`${RENDER_OPTIONS.documentId}/annotations-back`) || []);                    
     var deletedAnnonate_obj = oldAnnotations.filter((data)=>{                                     
             return data.uuid == annotationId;
     });        
 
     var i_by=annotationId;
+    var page=1;
+    
+    console.log("test");
+    console.log(deletedAnnonate_obj[0]);
+    console.log("test");
+
     if(deletedAnnonate_obj.length>0){
       if(deletedAnnonate_obj[0].inNotParent){
-        i_by=deletedAnnonate_obj[0].i_by;
-      }
+        i_by=deletedAnnonate_obj[0].i_by;        
+      }            
+      page=deletedAnnonate_obj[0].page;
     }
+
     var obj={
       'uuid':i_by,
       'documentId':documentId,
       'is_deleted':true,
       "i_by":i_by,
+      "page":page,
     }    
     socket.emit('delete annotations', obj);
   });
