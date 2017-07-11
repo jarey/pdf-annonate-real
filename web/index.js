@@ -40,10 +40,7 @@ document.getElementById('content-wrapper').addEventListener('scroll', function (
 });
 
 function render() {
-  
-  //localStorage.removeItem(`${RENDER_OPTIONS.documentId}/annotations`);
 
-  
   PDFJS.getDocument(RENDER_OPTIONS.documentId).then((pdf) => {    
     RENDER_OPTIONS.pdfDocument = pdf;    
     let viewer = document.getElementById('viewer');
@@ -72,7 +69,6 @@ var emitingDromServer=false;
     // render();    
   });
 
-
   //Clear Annonation Socket Code Start
   socket.on("clear annotations",function(targetObj){        
     localStorage.removeItem(`${RENDER_OPTIONS.documentId}/annotations`);
@@ -80,12 +76,11 @@ var emitingDromServer=false;
   });
   
   //Add Annonation Socket Code Start
-  socket.on("add annotations",function(targetObj){                                  
+  socket.on("add annotations",function(targetObj){                                          
         PDFJSAnnotate.getStoreAdapter().addAnnotation(
           'shared/example.pdf',
           1,            
           targetObj
-
         ).then((annotation) => {                        
           render();                                          
         }, (error) => {
@@ -95,13 +90,23 @@ var emitingDromServer=false;
 
   //Delete Annonation Socket Code Start
   socket.on("delete annotations",function(targetObj){            
+      
+      
       PDFJSAnnotate.getStoreAdapter().getAnnotations('shared/example.pdf', 1)
       .then((data) => {                    
-        var allAnnonate=data.annotations;                                                                                          
+        var allAnnonate=data.annotations;    
+                
         var filtered = allAnnonate.filter((data)=>{                                     
                 return data.i_by == targetObj.uuid;
-        });                      
-        if(filtered.length == 0) {
+        });    
+
+        if(filtered.length == 0) { 
+            filtered = allAnnonate.filter((data)=>{                                     
+                return data.uuid == targetObj.uuid;
+            });                    
+        }
+                
+        if(filtered.length == 0) {  
             return;
         }                           
         PDFJSAnnotate.getStoreAdapter().deleteAnnotation(
@@ -116,7 +121,6 @@ var emitingDromServer=false;
         console.log(error.message);
       });            
   });
-  
 
   
   //Edit Annonation Socket Code Start
@@ -186,6 +190,7 @@ var emitingDromServer=false;
     if (['fillcircle', 'arrow'].indexOf(type) === -1) {
       return; // nothing to do
     }
+
     currentTarget = target;
     hotspotColor = currentTarget.getAttribute('stroke');
 
@@ -199,7 +204,8 @@ var emitingDromServer=false;
     }
   }
 
-  function handleAnnotationBlur(target) {    
+  function handleAnnotationBlur(target) {  
+
     if (currentTarget === target) {
       currentTarget = undefined;
     }
@@ -498,6 +504,7 @@ var emitingDromServer=false;
       }
       socket.emit('clear annotations', "clear");
       localStorage.removeItem(`${RENDER_OPTIONS.documentId}/annotations`);
+      localStorage.removeItem(`${RENDER_OPTIONS.documentId}/annotations-back`);      
     }
   }
   document.querySelector('a.clear').addEventListener('click', handleClearClick);
@@ -557,28 +564,45 @@ var emitingDromServer=false;
 
   UI.addEventListener('annotation:click', handleAnnotationClick);
   UI.addEventListener('annotation:blur', handleAnnotationBlur);  
-  UI.addEventListener('annotation:add', (documentId, pageNumber, annotation) => {                
+  UI.addEventListener('annotation:add', (documentId, pageNumber, annotation) => {                        
+    let annotations = localStorage.getItem(`${RENDER_OPTIONS.documentId}/annotations`) || [];
+    localStorage.setItem(`${RENDER_OPTIONS.documentId}/annotations-back`,annotations)
+
     if(annotation.inNotParent){      
       annotation.inNotParent=false;      
       return;
-    }
+    }    
     socket.emit('add annotations', annotation);    
   });
 
-  UI.addEventListener('annotation:edit', (documentId, annotationId, annotation) => {    
+  UI.addEventListener('annotation:edit', (documentId, annotationId, annotation) => {        
+    let annotations = localStorage.getItem(`${RENDER_OPTIONS.documentId}/annotations`) || [];
+    localStorage.setItem(`${RENDER_OPTIONS.documentId}/annotations-back`,annotations)
+
     if(!emitingDromServer){
       socket.emit('edit annotations', annotation);
     }
     
   }); 
 
-  UI.addEventListener('annotation:delete', (documentId, annotationId)=>{
+  UI.addEventListener('annotation:delete', (documentId, annotationId)=>{    
+    var oldAnnotations = JSON.parse(localStorage.getItem(`${RENDER_OPTIONS.documentId}/annotations-back`) || []);                    
+    var deletedAnnonate_obj = oldAnnotations.filter((data)=>{                                     
+            return data.uuid == annotationId;
+    });        
+
+    var i_by=annotationId;
+    if(deletedAnnonate_obj.length>0){
+      if(deletedAnnonate_obj[0].inNotParent){
+        i_by=deletedAnnonate_obj[0].i_by;
+      }
+    }
     var obj={
-      'uuid':annotationId,
+      'uuid':i_by,
       'documentId':documentId,
       'is_deleted':true,
-      "i_by":annotationId,
-    }
+      "i_by":i_by,
+    }    
     socket.emit('delete annotations', obj);
   });
   
