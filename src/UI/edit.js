@@ -341,7 +341,7 @@ function handleAnnotationClick(target) {
 /**
  * Enable edit mode behavior.
  */
-export function enableEdit () {
+export function enableEdit () {  
   if (_enabled) { return; }
 
   _enabled = true;

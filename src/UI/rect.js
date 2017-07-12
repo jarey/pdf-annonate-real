@@ -36,13 +36,16 @@ function getSelectionRects() {
   
   return null;
 }
-
+function handleDocumentTouchdown(e){
+  handleDocumentMousedown(e.touches[0]);
+}
 /**
  * Handle document.mousedown event
  *
  * @param {Event} e The DOM event to handle
  */
 function handleDocumentMousedown(e) {
+  console.log(e)
   let svg;
   if (_type !== 'area' || !(svg = findSVGAtPoint(e.clientX, e.clientY))) {
     return;
@@ -61,6 +64,9 @@ function handleDocumentMousedown(e) {
   svg.parentNode.appendChild(overlay);
   
   document.addEventListener('mousemove', handleDocumentMousemove);
+  document.addEventListener('touchmove', function(e){
+    handleDocumentMousemove(e.touches[0]);
+  });
   disableUserSelect();
 }
 
@@ -81,6 +87,7 @@ function handleDocumentMousemove(e) {
     overlay.style.height = `${e.clientY - originY}px`;
   }
 }
+
 
 /**
  * Handle document.mouseup event
@@ -208,13 +215,20 @@ function saveRect(type, rects, color) {
  * Enable rect behavior
  */
 export function enableRect(type) {
+
+  
+
   _type = type;
   
   if (_enabled) { return; }
 
   _enabled = true;
+  document.addEventListener('touchend', function(e){
+    handleDocumentMouseup(e.touches[0])
+  });
   document.addEventListener('mouseup', handleDocumentMouseup);
   document.addEventListener('mousedown', handleDocumentMousedown);
+  document.addEventListener('touchstart', handleDocumentTouchdown );   
   document.addEventListener('keyup', handleDocumentKeyup);
 }
 
@@ -228,5 +242,9 @@ export function disableRect() {
   document.removeEventListener('mouseup', handleDocumentMouseup);
   document.removeEventListener('mousedown', handleDocumentMousedown);
   document.removeEventListener('keyup', handleDocumentKeyup);
-}
+  document.removeEventListener('touchstart', handleDocumentTouchdown);
+  document.removeEventListener('touchend', handleDocumentMouseup);
+  document.removeEventListener('touchmove', handleDocumentMousemove);
+    
+} 
 

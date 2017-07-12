@@ -124,6 +124,8 @@ export function setText(textSize = 12, textColor = '000000') {
  * Enable text behavior
  */
 export function enableText() {
+  
+  
   if (_enabled) { return; }
 
   _enabled = true;

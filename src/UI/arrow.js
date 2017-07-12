@@ -185,4 +185,3 @@ export function disableArrow() {
   document.removeEventListener('keyup', handleDocumentKeyup);
   enableUserSelect();
 }
-

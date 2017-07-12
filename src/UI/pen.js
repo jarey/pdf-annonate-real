@@ -8,11 +8,68 @@ import {
   convertToSvgPoint
 } from './utils';
 
+
 let _enabled = false;
 let _penSize;
 let _penColor;
 let path;
 let lines;
+
+
+var lastMove = null;
+
+function handleTouchStart(event) {    
+    lastMove = event;
+    path = null;
+    lines = [];
+    document.addEventListener('touchmove', handleTouchMove);
+    document.addEventListener('touchend', handleTouchEnd);
+};
+
+function handleTouchMove(event) {
+    lastMove = event;
+    // event.preventDefault();    
+    if (event.touches.length > 0) {
+        var e = event.touches[0];
+        savePoint(e.clientX, e.clientY);
+    }
+};
+
+
+function handleTouchEnd(event) {
+  
+    
+    if (lastMove && lastMove.touches.length > 0) {
+        var e = lastMove.touches[0];
+        var svg = void 0;
+                
+        if (lines.length > 1 && (svg = (0, findSVGAtPoint)(e.clientX, e.clientY))) {
+            var _getMetadata = (0, getMetadata)(svg);
+
+            var documentId = _getMetadata.documentId;
+            var pageNumber = _getMetadata.pageNumber;
+
+
+            PDFJSAnnotate.getStoreAdapter().addAnnotation(documentId, pageNumber, {
+                type: 'drawing',
+                width: _penSize,
+                color: _penColor,
+                lines: lines
+            }).then(function(annotation) {
+                if (path) {
+                    svg.removeChild(path);
+                }
+                appendChild(svg, annotation);
+            });
+        }
+    }
+    lastMove = null;
+    document.removeEventListener('touchmove', handleTouchMove);
+    document.removeEventListener('touchend', handleTouchEnd);
+};
+
+
+
 
 /**
  * Handle document.mousedown event
@@ -129,11 +186,19 @@ export function setPen(penSize = 1, penColor = '000000') {
  * Enable the pen behavior
  */
 export function enablePen() {
+
+  $('#content-wrapper').css('overflow-y', 'hidden');
+  $('#content-wrapper').css('overflow-x', 'hidden');
+  $('#content-wrapper').css('-webkit-overflow-scrolling', 'none');
+
   if (_enabled) { return; }
 
   _enabled = true;
-  document.addEventListener('mousedown', handleDocumentMousedown);
-  document.addEventListener('keyup', handleDocumentKeyup);
+  document.addEventListener('mousedown', handleDocumentMousedown);  
+  document.addEventListener('keyup', handleDocumentKeyup);    
+
+  document.addEventListener('touchstart', handleTouchStart, false);
+  
   disableUserSelect();
 }
 
@@ -141,11 +206,21 @@ export function enablePen() {
  * Disable the pen behavior
  */
 export function disablePen() {
+  
+  $('#content-wrapper').css('overflow-y', 'scroll');
+  $('#content-wrapper').css('overflow-x', 'scroll');
+  $('#content-wrapper').css('-webkit-overflow-scrolling', 'touch');
+
   if (!_enabled) { return; }
 
   _enabled = false;
   document.removeEventListener('mousedown', handleDocumentMousedown);
+
   document.removeEventListener('keyup', handleDocumentKeyup);
+
+  document.removeEventListener('touchstart', handleTouchStart);
+  
+  
   enableUserSelect();
 }
 

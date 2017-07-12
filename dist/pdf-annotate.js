@@ -495,6 +495,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	 * @param {Event} e The DOM event to be handled
 	 */
 	document.addEventListener('click', function handleDocumentClick(e) {
+		console.log(e);
 	  if (!(0, _utils.findSVGAtPoint)(e.clientX, e.clientY)) {
 	    return;
 	  }

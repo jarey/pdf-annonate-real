@@ -72,6 +72,12 @@ function saveCircle(svg, type, pt, radius, color) {
  * Enable circle behavior
  */
 export function enableCircle(type) {
+  
+  $('#content-wrapper').css('overflow-y', 'hidden');
+  $('#content-wrapper').css('overflow-x', 'hidden');
+  $('#content-wrapper').css('-webkit-overflow-scrolling', 'none');
+
+
   _type = type;
   
   if (_enabled) { return; }
@@ -84,6 +90,11 @@ export function enableCircle(type) {
  * Disable circle behavior
  */
 export function disableCircle() {
+
+   $('#content-wrapper').css('overflow-y', 'scroll');
+  $('#content-wrapper').css('overflow-x', 'scroll');
+  $('#content-wrapper').css('-webkit-overflow-scrolling', 'touch');
+  
   if (!_enabled) { return; }
 
   _enabled = false;
