@@ -15,6 +15,7 @@ let _type;
 let overlay;
 let originY;
 let originX;
+var lastMove;
 
 /**
  * Get the current window selection as rects
@@ -36,8 +37,33 @@ function getSelectionRects() {
   
   return null;
 }
-function handleDocumentTouchdown(e){
-  handleDocumentMousedown(e.touches[0]);
+function handleTouchStart(e){
+  lastMove = event;
+
+  // handleDocumentMousedown(e.touches[0]);
+  if (lastMove && lastMove.touches.length > 0) {
+      var e = lastMove.touches[0];
+      let svg;
+      if (_type !== 'area' || !(svg = findSVGAtPoint(e.clientX, e.clientY))) {
+        return;
+      }
+
+      let rect = svg.getBoundingClientRect();
+      originY = e.clientY;
+      originX = e.clientX;
+
+      overlay = document.createElement('div');
+      overlay.style.position = 'absolute';
+      overlay.style.top = `${originY - rect.top}px`;
+      overlay.style.left = `${originX - rect.left}px`;
+      overlay.style.border = `3px solid ${BORDER_COLOR}`;
+      overlay.style.borderRadius = '3px';
+      svg.parentNode.appendChild(overlay);
+  }
+  document.addEventListener('touchmove', handleDocumentTouchmove);
+
+  
+
 }
 /**
  * Handle document.mousedown event
@@ -64,9 +90,11 @@ function handleDocumentMousedown(e) {
   svg.parentNode.appendChild(overlay);
   
   document.addEventListener('mousemove', handleDocumentMousemove);
-  document.addEventListener('touchmove', function(e){
-    handleDocumentMousemove(e.touches[0]);
-  });
+  
+  // document.addEventListener('touchmove', function(e){
+  //   handleDocumentMousemove(e.touches[0]);
+  // });
+
   disableUserSelect();
 }
 
@@ -86,6 +114,24 @@ function handleDocumentMousemove(e) {
   if (originY + (e.clientY - originY) < rect.bottom) {
     overlay.style.height = `${e.clientY - originY}px`;
   }
+}
+
+function handleDocumentTouchmove(e) {
+  lastMove=e;
+
+if (lastMove && lastMove.touches.length > 0) {
+      var e = lastMove.touches[0];
+      let svg = overlay.parentNode.querySelector(config.annotationSvgQuery());
+      let rect = svg.getBoundingClientRect();
+
+      if (originX + (e.clientX - originX) < rect.right) {
+        overlay.style.width = `${e.clientX - originX}px`;
+      }
+
+      if (originY + (e.clientY - originY) < rect.bottom) {
+        overlay.style.height = `${e.clientY - originY}px`;
+      }      
+}
 }
 
 
@@ -123,6 +169,38 @@ function handleDocumentMouseup(e) {
     enableUserSelect();
   }
 }
+
+
+function handleTouchend(e) {
+  let rects;
+  if (_type !== 'area' && (rects = getSelectionRects())) {
+    let svg = findSVGAtPoint(rects[0].left, rects[0].top);
+    saveRect(_type, [...rects].map((r) => {
+      return {
+        top: r.top,
+        left: r.left,
+        width: r.width,
+        height: r.height
+      };
+    }));
+  } else if (_type === 'area' && overlay) {
+    let svg = overlay.parentNode.querySelector(config.annotationSvgQuery());
+    let rect = svg.getBoundingClientRect();
+    saveRect(_type, [{
+      top: parseInt(overlay.style.top, 10) + rect.top,
+      left: parseInt(overlay.style.left, 10) + rect.left,
+      width: parseInt(overlay.style.width, 10),
+      height: parseInt(overlay.style.height, 10)
+    }]);
+    overlay.parentNode.removeChild(overlay);
+    overlay = null;
+    document.removeEventListener('touchmove', handleDocumentTouchmove);
+    enableUserSelect();
+  }
+
+}
+
+
 
 /**
  * Handle document.keyup event
@@ -218,17 +296,21 @@ export function enableRect(type) {
 
   
 
-  _type = type;
-  
+  _type = type;  
   if (_enabled) { return; }
 
+
+  $('#content-wrapper').css('overflow-y', 'hidden');
+  $('#content-wrapper').css('overflow-x', 'hidden');
+  $('#content-wrapper').css('-webkit-overflow-scrolling', 'none');
+  
   _enabled = true;
-  document.addEventListener('touchend', function(e){
-    handleDocumentMouseup(e.touches[0])
-  });
-  document.addEventListener('mouseup', handleDocumentMouseup);
   document.addEventListener('mousedown', handleDocumentMousedown);
-  document.addEventListener('touchstart', handleDocumentTouchdown );   
+  document.addEventListener('mouseup', handleDocumentMouseup);
+    
+  document.addEventListener('touchstart', handleTouchStart );       
+  document.addEventListener('touchend',handleTouchend);  
+
   document.addEventListener('keyup', handleDocumentKeyup);
 }
 
@@ -236,15 +318,23 @@ export function enableRect(type) {
  * Disable rect behavior
  */
 export function disableRect() {
+
+  $('#content-wrapper').css('overflow-y', 'scroll');
+  $('#content-wrapper').css('overflow-x', 'scroll');
+  $('#content-wrapper').css('-webkit-overflow-scrolling', 'touch');
+
+
   if (!_enabled) { return; }
 
   _enabled = false;
-  document.removeEventListener('mouseup', handleDocumentMouseup);
   document.removeEventListener('mousedown', handleDocumentMousedown);
+  
+  document.removeEventListener('mouseup', handleDocumentMouseup);    
+  
+  document.removeEventListener('touchstart', handleTouchStart);  
+  document.removeEventListener('touchend', handleTouchend);  
+
   document.removeEventListener('keyup', handleDocumentKeyup);
-  document.removeEventListener('touchstart', handleDocumentTouchdown);
-  document.removeEventListener('touchend', handleDocumentMouseup);
-  document.removeEventListener('touchmove', handleDocumentMousemove);
-    
+  
 } 
 

@@ -59,7 +59,9 @@ export function renderPage(pageNumber, renderOptions) {
     PDFJSAnnotate.getAnnotations(documentId, pageNumber)
   ]).then(([pdfPage, annotations]) => {
     let page = document.getElementById(`pageContainer${pageNumber}`);
+
     let svg = page.querySelector(config.annotationClassQuery());
+    
     let canvas = page.querySelector('.canvasWrapper canvas');
     let canvasContext = canvas.getContext('2d', {alpha: false});
     let totalRotation = (rotate + pdfPage.rotate) % 360;

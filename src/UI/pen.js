@@ -22,6 +22,7 @@ function handleTouchStart(event) {
     lastMove = event;
     path = null;
     lines = [];
+
     document.addEventListener('touchmove', handleTouchMove);
     document.addEventListener('touchend', handleTouchEnd);
 };
@@ -64,6 +65,7 @@ function handleTouchEnd(event) {
         }
     }
     lastMove = null;
+
     document.removeEventListener('touchmove', handleTouchMove);
     document.removeEventListener('touchend', handleTouchEnd);
 };
@@ -199,6 +201,7 @@ export function enablePen() {
 
   document.addEventListener('touchstart', handleTouchStart, false);
   
+  
   disableUserSelect();
 }
 
@@ -215,7 +218,6 @@ export function disablePen() {
 
   _enabled = false;
   document.removeEventListener('mousedown', handleDocumentMousedown);
-
   document.removeEventListener('keyup', handleDocumentKeyup);
 
   document.removeEventListener('touchstart', handleTouchStart);
