@@ -22,6 +22,7 @@ let originX;
 /**
  * Handle document.mousedown event
  */
+
 function handleDocumentMousedown(e) {
   let target = findAnnotationAtPoint(e.clientX, e.clientY);
   if (target === null)

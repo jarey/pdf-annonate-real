@@ -24,22 +24,29 @@ PDFJS.workerSrc = './shared/pdf.worker.js';
 let NUM_PAGES = 0;
 let renderedPages = [];
 let okToRender = false;
-document.getElementById('content-wrapper').addEventListener('scroll', function(e) {
-    let visiblePageNum = Math.round(e.target.scrollTop / PAGE_HEIGHT) + 1;
-    let visiblePage = document.querySelector(`.page[data-page-number="${visiblePageNum}"][data-loaded="false"]`);
+let timeout;
 
-    if (renderedPages.indexOf(visiblePageNum) == -1) {
-        okToRender = true;
-        renderedPages.push(visiblePageNum);
-    } else {
-        okToRender = false;
-    }
-    if (visiblePage && okToRender) {
-        setTimeout(function() {
-            UI.renderPage(visiblePageNum, RENDER_OPTIONS);
-        });
-    }
+document.getElementById('content-wrapper').addEventListener('scroll', function(e) {        
 
+    // clearTimeout(timeout);    
+    //  timeout = setTimeout(function() {
+
+        let visiblePageNum = Math.round(e.target.scrollTop / PAGE_HEIGHT) + 1;
+        let visiblePage = document.querySelector(`.page[data-page-number="${visiblePageNum}"][data-loaded="false"]`);
+
+        if (renderedPages.indexOf(visiblePageNum) == -1) {
+            okToRender = true;
+            renderedPages.push(visiblePageNum);
+        } else {
+            okToRender = false;
+        }
+        if (visiblePage && okToRender) {
+            setTimeout(function() {
+                UI.renderPage(visiblePageNum, RENDER_OPTIONS);
+            });
+        }
+
+    // }, 50);
 });
 
 function render() {
@@ -47,44 +54,52 @@ function render() {
         RENDER_OPTIONS.pdfDocument = pdf;
         let viewer = document.getElementById('viewer');
         viewer.innerHTML = '';
+
         NUM_PAGES = pdf.pdfInfo.numPages;
         for (let i = 0; i < NUM_PAGES; i++) {
-            let page = UI.createPage(i + 1);
+            let page = UI.createPage(i + 1);                        
             viewer.appendChild(page);
         }
+        
+        // setTimeout(function(){
+        //     var doc = new jsPDF('p', 'pt', 'letter')
+        //     doc.text(viewer.innerHTML, 10, 10)
+        //     doc.save('a4.pdf')            
+        // },2000);
+
+        
         UI.renderPage(1, RENDER_OPTIONS).then(([pdfPage, annotations]) => {
             let viewport = pdfPage.getViewport(RENDER_OPTIONS.scale, RENDER_OPTIONS.rotate);
-            PAGE_HEIGHT = viewport.height;
+            PAGE_HEIGHT = viewport.height;                        
         });
-
+        
+        renderedPages.push(1);
     });
 }
 render();
 
 // Socket Code Start
-var socket = io("http://192.168.1.76:8585/");
+var socket = io("http://192.168.1.76:8484/");
 var emitingDromServer = false;
 
 (function() {
-
-    localStorage.removeItem(`${RENDER_OPTIONS.documentId}/tooltype`);
-
-    socket.on('load old annonation', function(targetObj) {
-        // localStorage.setItem(`${RENDER_OPTIONS.documentId}/annotations`, JSON.stringify(targetObj.annonation));        
-        // render();    
+    
+    
+    localStorage.removeItem(`${RENDER_OPTIONS.documentId}/tooltype`);    
+    socket.on('load old annonation', function(targetObj) {                            
+        // console.log(targetObj.annonation);        
+        // localStorage.setItem(`${RENDER_OPTIONS.documentId}/annotations`, JSON.stringify(targetObj.annonation));                
+        // render();
     });
 
     //Clear Annonation Socket Code Start
     socket.on("clear annotations", function(targetObj) {
         localStorage.removeItem(`${RENDER_OPTIONS.documentId}/annotations`);
-
         for (let i = 0; i < NUM_PAGES; i++) {
             let page = document.getElementById(`pageContainer${i+1}`);
             let svg = page.querySelector(config.annotationClassQuery()).innerHTML = "";
-            UI.renderPage(targetObj.page, RENDER_OPTIONS);
-
+            // UI.renderPage(i+1, RENDER_OPTIONS);                        
         }
-
     });
 
     //Add Annonation Socket Code Start
@@ -94,13 +109,13 @@ var emitingDromServer = false;
             documentId,
             targetObj.page,
             targetObj
-        ).then((annotation) => {
-
-            UI.renderPage(annotation.page, RENDER_OPTIONS).then(([pdfPage, annotations]) => {
-                let viewport = pdfPage.getViewport(RENDER_OPTIONS.scale, RENDER_OPTIONS.rotate);
-                PAGE_HEIGHT = viewport.height;
-            });
-
+        ).then((annotation) => {            
+            if (renderedPages.indexOf(annotation.page) != -1) {
+                UI.renderPage(annotation.page, RENDER_OPTIONS).then(([pdfPage, annotations]) => {
+                    let viewport = pdfPage.getViewport(RENDER_OPTIONS.scale, RENDER_OPTIONS.rotate);
+                    PAGE_HEIGHT = viewport.height;
+                });
+            }
         }, (error) => {
             console.log(error.message);
         });
@@ -108,7 +123,6 @@ var emitingDromServer = false;
 
     //Delete Annonation Socket Code Start
     socket.on("delete annotations", function(targetObj) {
-
         PDFJSAnnotate.getStoreAdapter().getAnnotations(documentId, targetObj.page)
             .then((data) => {
                 var allAnnonate = data.annotations;
@@ -123,18 +137,22 @@ var emitingDromServer = false;
                 if (filtered.length == 0) {
                     return;
                 }
+                
+                
+                
                 PDFJSAnnotate.getStoreAdapter().deleteAnnotation(
                     documentId,
                     filtered[0].uuid
-                ).then(() => {
-
-                    let page = document.getElementById(`pageContainer${targetObj.page}`);
-                    let svg = page.querySelector(config.annotationClassQuery()).innerHTML = "";
-                    UI.renderPage(targetObj.page, RENDER_OPTIONS);
-
+                ).then(() => {                    
+                    if (renderedPages.indexOf(targetObj.page) != -1){
+                        let page = document.getElementById(`pageContainer${targetObj.page}`);
+                        let svg = page.querySelector(config.annotationClassQuery()).innerHTML = "";                                                
+                        UI.renderPage(targetObj.page, RENDER_OPTIONS);
+                    }                    
                 }, (error) => {
                     console.log(error.message);
                 });
+
             }, (error) => {
                 console.log(error.message);
             });
@@ -143,6 +161,8 @@ var emitingDromServer = false;
 
     //Edit Annonation Socket Code Start
     socket.on("edit annotations", function(targetObj) {
+
+        
 
         emitingDromServer = true
 
@@ -155,12 +175,17 @@ var emitingDromServer = false;
                 console.log(error.message);
             });
 
-            let page = document.getElementById(`pageContainer${targetObj.page}`);
-            let svg = page.querySelector(config.annotationClassQuery()).innerHTML = "";
-            UI.renderPage(targetObj.page, RENDER_OPTIONS);
+            if (renderedPages.indexOf(targetObj.page) != -1) {
+                let page = document.getElementById(`pageContainer${targetObj.page}`);
+                let svg = page.querySelector(config.annotationClassQuery()).innerHTML = "";
+                UI.renderPage(targetObj.page, RENDER_OPTIONS);
+            }
+
         }
 
+
         if (targetObj.inNotParent) {
+                        
             PDFJSAnnotate.getStoreAdapter().getAnnotations(documentId, targetObj.page)
                 .then((data) => {
                     var allAnnonate = data.annotations;
@@ -169,14 +194,16 @@ var emitingDromServer = false;
                     });
                     if (filtered.length == 0) {
                         return;
-                    }
+                    }                    
+                    targetObj.uuid = filtered[0].uuid;
+                    targetObj.inNotParent = false;
+                    
                     updateCallback(filtered[0]['uuid'], targetObj)
 
                 }, (error) => {
                     console.log(error.message);
                 });
         } else {
-
             PDFJSAnnotate.getStoreAdapter().getAnnotations(documentId, targetObj.page)
                 .then((data) => {
                     var allAnnonate = data.annotations;
@@ -190,7 +217,6 @@ var emitingDromServer = false;
                     targetObj.inNotParent = true;
 
                     updateCallback(filtered[0]['uuid'], targetObj)
-
 
                 }, (error) => {
                     console.log(error.message);
@@ -211,7 +237,6 @@ var emitingDromServer = false;
         if (['fillcircle', 'arrow'].indexOf(type) === -1) {
             return; // nothing to do
         }
-
         currentTarget = target;
         hotspotColor = currentTarget.getAttribute('stroke');
 
@@ -327,7 +352,6 @@ var emitingDromServer = false;
     }
 
     document.querySelector('.toolbar .text-size').addEventListener('change', handleTextSizeChange);
-
     initText();
 })();
 
@@ -443,6 +467,7 @@ var emitingDromServer = false;
         }
         tooltype = type;
 
+
         switch (type) {
             case 'cursor':
                 UI.enableEdit();
@@ -475,6 +500,7 @@ var emitingDromServer = false;
     function handleToolbarClick(e) {
         if (e.target.nodeName === 'BUTTON') {
             setActiveToolbarItem(e.target.getAttribute('data-tooltype'), e.target);
+
         }
     }
 
@@ -491,7 +517,8 @@ var emitingDromServer = false;
         if (RENDER_OPTIONS.scale !== scale || RENDER_OPTIONS.rotate !== rotate) {
             RENDER_OPTIONS.scale = scale;
             RENDER_OPTIONS.rotate = rotate;
-
+            
+            
             localStorage.setItem(`${RENDER_OPTIONS.documentId}/scale`, RENDER_OPTIONS.scale);
             localStorage.setItem(`${RENDER_OPTIONS.documentId}/rotate`, RENDER_OPTIONS.rotate % 360);
 
@@ -500,6 +527,7 @@ var emitingDromServer = false;
     }
 
     function handleScaleChange(e) {
+
         setScaleRotate(e.target.value, RENDER_OPTIONS.rotate);
     }
 
@@ -594,7 +622,6 @@ var emitingDromServer = false;
     UI.addEventListener('annotation:add', (documentId, pageNumber, annotation) => {
         let annotations = localStorage.getItem(`${RENDER_OPTIONS.documentId}/annotations`) || [];
         localStorage.setItem(`${RENDER_OPTIONS.documentId}/annotations-back`, annotations)
-
         if (annotation.inNotParent) {
             annotation.inNotParent = false;
             return;
@@ -605,24 +632,18 @@ var emitingDromServer = false;
     UI.addEventListener('annotation:edit', (documentId, annotationId, annotation) => {
         let annotations = localStorage.getItem(`${RENDER_OPTIONS.documentId}/annotations`) || [];
         localStorage.setItem(`${RENDER_OPTIONS.documentId}/annotations-back`, annotations)
-
         if (!emitingDromServer) {
             socket.emit('edit annotations', annotation);
-        }
-
+        }        
     });
 
     UI.addEventListener('annotation:delete', (documentId, annotationId) => {
-
-        var oldAnnotations = JSON.parse(localStorage.getItem(`${RENDER_OPTIONS.documentId}/annotations-back`) || []);
+        var oldAnnotations = JSON.parse(localStorage.getItem(`${RENDER_OPTIONS.documentId}/annotations-back`) || []);        
         var deletedAnnonate_obj = oldAnnotations.filter((data) => {
             return data.uuid == annotationId;
         });
-
         var i_by = annotationId;
-        var page = 1;
-
-
+        var page = 1;        
         if (deletedAnnonate_obj.length > 0) {
             if (deletedAnnonate_obj[0].inNotParent) {
                 i_by = deletedAnnonate_obj[0].i_by;
@@ -642,3 +663,22 @@ var emitingDromServer = false;
     UI.setArrow(10, 'darkgoldenrod');
     UI.setCircle(10, 'darkgoldenrod')
 })(window, document);
+
+
+document.querySelector('#download').addEventListener('click', handleDownloadClick);
+      function handleDownloadClick(){
+          
+        let annotations = localStorage.getItem(`${RENDER_OPTIONS.documentId}/annotations`) || [];                
+        
+        $("#input-annotate").val(annotations);
+        $("#download-button").trigger( "click" );
+
+        //   $.post("/download",
+        //   {
+        //       'annotations': annotations,                            
+        //   },
+        //   function(data, status){              
+        //       window.open("http://192.168.1.76:8484/shared/example14.pdf")
+        //   });
+
+      }

@@ -22,7 +22,6 @@ function handleTouchStart(event) {
     lastMove = event;
     path = null;
     lines = [];
-
     document.addEventListener('touchmove', handleTouchMove);
     document.addEventListener('touchend', handleTouchEnd);
 };
@@ -79,7 +78,6 @@ function handleTouchEnd(event) {
 function handleDocumentMousedown() {
   path = null;
   lines = [];
-
   document.addEventListener('mousemove', handleDocumentMousemove);
   document.addEventListener('mouseup', handleDocumentMouseup);
 }
@@ -196,12 +194,11 @@ export function enablePen() {
   if (_enabled) { return; }
 
   _enabled = true;
+  
   document.addEventListener('mousedown', handleDocumentMousedown);  
   document.addEventListener('keyup', handleDocumentKeyup);    
-
   document.addEventListener('touchstart', handleTouchStart, false);
-  
-  
+
   disableUserSelect();
 }
 

@@ -58,6 +58,7 @@ export function renderPage(pageNumber, renderOptions) {
     pdfDocument.getPage(pageNumber),
     PDFJSAnnotate.getAnnotations(documentId, pageNumber)
   ]).then(([pdfPage, annotations]) => {
+
     let page = document.getElementById(`pageContainer${pageNumber}`);
 
     let svg = page.querySelector(config.annotationClassQuery());
@@ -113,7 +114,7 @@ export function renderPage(pageNumber, renderOptions) {
  * @param {Object} context The canvas context that the PDF page is rendered to
  * @return {Array} The transform data for rendering the PDF page
  */
-function scalePage(pageNumber, viewport, context) {
+function scalePage(pageNumber, viewport, context) {  
   let page = document.getElementById(`pageContainer${pageNumber}`);
   let canvas = page.querySelector('.canvasWrapper canvas');
   let svg = page.querySelector(config.annotationClassQuery());
@@ -122,12 +123,11 @@ function scalePage(pageNumber, viewport, context) {
   let outputScale = getOutputScale(context);
   let transform = !outputScale.scaled ? null : [outputScale.sx, 0, 0, outputScale.sy, 0, 0];
   let sfx = approximateFraction(outputScale.sx);
-  let sfy = approximateFraction(outputScale.sy);
-
+  let sfy = approximateFraction(outputScale.sy);  
   // Adjust width/height for scale
   page.style.visibility = '';
   canvas.width = roundToDivide(viewport.width * outputScale.sx, sfx[0]);
-  canvas.height = roundToDivide(viewport.height * outputScale.sy, sfy[0]);
+  canvas.height = roundToDivide(viewport.height * outputScale.sy, sfy[0]);  
   canvas.style.width = roundToDivide(viewport.width, sfx[1]) + 'px';
   canvas.style.height = roundToDivide(viewport.height, sfx[1]) + 'px';
   svg.setAttribute('width', viewport.width);

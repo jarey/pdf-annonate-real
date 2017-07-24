@@ -32,6 +32,9 @@ function createEditOverlay(target) {
 
   overlay = document.createElement('div');
   let anchor = document.createElement('a');
+  
+  let size = document.createElement('a');
+
   let parentNode = findSVGContainer(target).parentNode;
   let id = target.getAttribute('data-pdf-annotate-id');
   let rect = getOffsetAnnotationRect(target);
@@ -40,7 +43,7 @@ function createEditOverlay(target) {
   
   overlay.setAttribute('id', 'pdf-annotate-edit-overlay');
   overlay.setAttribute('data-target-id', id);
-  overlay.style.boxSizing = 'content-box';
+  overlay.style.boxSizing = 'content-box';  
   overlay.style.position = 'absolute';
   overlay.style.top = `${styleTop}px`;
   overlay.style.left = `${styleLeft}px`;
@@ -49,7 +52,24 @@ function createEditOverlay(target) {
   overlay.style.border = `${OVERLAY_BORDER_SIZE}px solid ${BORDER_COLOR}`;
   overlay.style.borderRadius = `${OVERLAY_BORDER_SIZE}px`;
   overlay.style.zIndex = 20100;
+  
 
+  // size.innerHTML = '-';
+  // size.setAttribute('href', 'javascript://');
+  // size.style.background = '#fff';
+  // size.style.borderRadius = '20px';
+  // size.style.border = '1px solid #bbb';
+  // size.style.color = '#bbb';
+  // size.style.fontSize = '16px';
+  // size.style.padding = '2px';
+  // size.style.textAlign = 'center';
+  // size.style.textDecoration = 'none';
+  // size.style.position = 'absolute';
+  // size.style.bottom = '-13px';
+  // size.style.right = '-13px';
+  // size.style.width = '20px';
+  // size.style.height = '20px';
+  
   anchor.innerHTML = '×';
   anchor.setAttribute('href', 'javascript://');
   anchor.style.background = '#fff';
@@ -67,21 +87,28 @@ function createEditOverlay(target) {
   anchor.style.height = '25px';
   
   overlay.appendChild(anchor);
+  
+  // overlay.appendChild(size);
+
   parentNode.appendChild(overlay);
   document.addEventListener('click', handleDocumentClick);
   document.addEventListener('keyup', handleDocumentKeyup);
   document.addEventListener('mousedown', handleDocumentMousedown);
+
   anchor.addEventListener('click', deleteAnnotation);
+  
   anchor.addEventListener('mouseover', () => {
     anchor.style.color = '#35A4DC';
     anchor.style.borderColor = '#999';
     anchor.style.boxShadow = '0 1px 1px #ccc';
   });
+
   anchor.addEventListener('mouseout', () => {
     anchor.style.color = '#bbb';
     anchor.style.borderColor = '#bbb';
     anchor.style.boxShadow = '';
   });
+
   overlay.addEventListener('mouseover', () => {
     if (!isDragging) { anchor.style.display = ''; }
   });
@@ -133,7 +160,9 @@ function deleteAnnotation() {
  * @param {Event} e The DOM event that needs to be handled
  */
 function handleDocumentClick(e) {
+    
   if (!findSVGAtPoint(e.clientX, e.clientY)) { return; }
+  
 
   // Remove current overlay
   let overlay = document.getElementById('pdf-annotate-edit-overlay');
@@ -167,6 +196,7 @@ function handleDocumentKeyup(e) {
 function handleDocumentMousedown(e) {
   if (e.target !== overlay) { return; }
 
+  
   // Highlight and strikeout annotations are bound to text within the document.
   // It doesn't make sense to allow repositioning these types of annotations.
   let annotationId = overlay.getAttribute('data-target-id');
@@ -335,13 +365,18 @@ function handleDocumentMouseup(e) {
  * @param {Element} e The annotation element that was clicked
  */
 function handleAnnotationClick(target) {
+  
   createEditOverlay(target);
+  
 }
 
 /**
  * Enable edit mode behavior.
  */
 export function enableEdit () {  
+  
+  
+
   if (_enabled) { return; }
 
   _enabled = true;
